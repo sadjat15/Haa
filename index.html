@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KD JAAT - Online Test Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <style>
+        /* Modern Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2563eb; }
+        
+        .hidden { display: none !important; }
+        body { background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        /* App Download Banner */
+        #app-banner { background: linear-gradient(90deg, #4f46e5, #ec4899); color: white; padding: 10px; text-align: center; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="app-banner" onclick="window.open('YOUR_APP_LINK_HERE')">
+        🚀 Download our App from here for the best experience!
+    </div>
+
+    <div id="app-container" class="max-w-md mx-auto sm:max-w-4xl mt-10 p-4">
+
+        <div id="login-section" class="bg-white p-8 rounded-xl shadow-2xl">
+            <h1 class="text-3xl font-extrabold text-center text-blue-600 mb-6">KD JAAT PORTAL</h1>
+            
+            <div class="flex justify-center space-x-4 mb-6">
+                <button onclick="setLoginType('student')" id="btn-student-login" class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow">Student</button>
+                <button onclick="setLoginType('admin')" id="btn-admin-login" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg shadow">Admin</button>
+            </div>
+
+            <input type="text" id="login-id" placeholder="Phone Number / ID" class="w-full p-3 mb-4 border rounded-lg focus:ring-2 focus:ring-blue-500">
+            <input type="password" id="login-pass" placeholder="Password (Min 6 digits)" class="w-full p-3 mb-4 border rounded-lg focus:ring-2 focus:ring-blue-500">
+            
+            <button onclick="handleLogin()" class="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition">Login</button>
+            <p id="login-error" class="text-red-500 text-center mt-2 hidden"></p>
+        </div>
+
+        <div id="admin-section" class="hidden bg-white p-8 rounded-xl shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Admin Dashboard</h2>
+                <button onclick="logout()" class="text-red-500 font-bold">Logout</button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <h3 class="font-bold mb-2">🤖 AI Question Generator</h3>
+                    <textarea id="ai-prompt" placeholder="Enter topic or paste text to generate Hindi/English questions..." class="w-full p-2 border rounded mb-2 h-24"></textarea>
+                    <button onclick="generateAIQuestions()" class="w-full bg-purple-600 text-white p-2 rounded hover:bg-purple-700">Generate with Gemini</button>
+                    <p id="ai-status" class="text-sm mt-2 text-gray-600"></p>
+                </div>
+
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <h3 class="font-bold mb-2">📝 Manage Tests</h3>
+                    <input type="text" placeholder="Test Name" class="w-full p-2 border rounded mb-2">
+                    <input type="number" placeholder="Timer (Minutes)" class="w-full p-2 border rounded mb-2">
+                    <button class="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700">Create New Test</button>
+                </div>
+            </div>
+            
+            <button onclick="goBack('login-section')" class="mt-6 text-blue-600 underline">← Back to Main</button>
+        </div>
+
+        <div id="student-section" class="hidden">
+            <div class="bg-white p-6 rounded-xl shadow-lg mb-6 flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-800">Welcome, Student</h2>
+                <button onclick="logout()" class="text-red-500 font-bold">Logout</button>
+            </div>
+
+            <h3 class="text-xl font-bold mb-4">Available Test Groups</h3>
+            <div class="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl p-6 text-white shadow-lg cursor-pointer hover:scale-105 transition" onclick="openTestPanel()">
+                <h4 class="text-2xl font-bold">Haryana CET Group D</h4>
+                <p>Click to view all full tests and previous year papers.</p>
+            </div>
+        </div>
+
+        <div id="test-section" class="hidden bg-white p-6 rounded-xl shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-4 mb-4">
+                <h3 class="text-xl font-bold">Mock Test 1</h3>
+                <div class="text-red-600 font-mono font-bold text-xl" id="timer">45:00</div>
+                <button onclick="toggleLanguage()" class="px-3 py-1 bg-gray-200 rounded text-sm font-bold">A/अ Switch Lang</button>
+            </div>
+
+            <div class="mb-6 h-64 overflow-y-auto pr-2">
+                <p class="text-lg font-semibold mb-4" id="question-text-en">1. What is the capital of France?</p>
+                <p class="text-lg font-semibold mb-4 hidden text-blue-800" id="question-text-hi">1. फ्रांस की राजधानी क्या है?</p>
+                
+                <div class="space-y-2">
+                    <label class="block p-3 border rounded-lg cursor-pointer hover:bg-blue-50"><input type="radio" name="q1" class="mr-2"> Paris / पेरिस</label>
+                    <label class="block p-3 border rounded-lg cursor-pointer hover:bg-blue-50"><input type="radio" name="q1" class="mr-2"> London / लंदन</label>
+                    <label class="block p-3 border rounded-lg cursor-pointer hover:bg-blue-50"><input type="radio" name="q1" class="mr-2"> Berlin / बर्लिन</label>
+                    <label class="block p-3 border rounded-lg cursor-pointer hover:bg-blue-50"><input type="radio" name="q1" class="mr-2"> Madrid / मैड्रिड</label>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 justify-between border-t pt-4">
+                <button onclick="handleTestBack()" class="px-4 py-2 bg-gray-500 text-white rounded">Pause / Back</button>
+                <button class="px-4 py-2 bg-yellow-500 text-white rounded">Mark for Review</button>
+                <button class="px-4 py-2 bg-blue-600 text-white rounded">Save & Next</button>
+                <button class="px-4 py-2 bg-green-600 text-white rounded font-bold">Submit Test</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBDPdbSyP8WD70CCPwbMA9sPtOK9XLejbQ",
+            authDomain: "test2-672e5.firebaseapp.com",
+            databaseURL: "https://test2-672e5-default-rtdb.firebaseio.com",
+            projectId: "test2-672e5",
+            storageBucket: "test2-672e5.firebasestorage.app",
+            messagingSenderId: "250226237572",
+            appId: "1:250226237572:web:d3f794d00f22a703faa2d1",
+            measurementId: "G-P574FX2MFF"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // --- 2. GLOBAL VARIABLES ---
+        let currentLoginType = 'student';
+        let failedAttempts = 0;
+        let isHindi = false;
+        
+        // --- 3. UI ROUTING & BACK BUTTON LOGIC ---
+        function showSection(sectionId) {
+            ['login-section', 'admin-section', 'student-section', 'test-section'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+            
+            // Push state for physical phone back button
+            window.history.pushState({section: sectionId}, "", `#${sectionId}`);
+        }
+
+        // Handle physical back button on phones
+        window.addEventListener('popstate', function(event) {
+            if (event.state && event.state.section) {
+                if(event.state.section === 'test-section') {
+                    handleTestBack(); // Custom warning before leaving test
+                } else {
+                    showSection(event.state.section);
+                }
+            }
+        });
+
+        // --- 4. AUTHENTICATION LOGIC ---
+        function setLoginType(type) {
+            currentLoginType = type;
+            if(type === 'admin') {
+                document.getElementById('btn-admin-login').className = "px-4 py-2 bg-blue-600 text-white rounded-lg shadow";
+                document.getElementById('btn-student-login').className = "px-4 py-2 bg-gray-200 text-gray-700 rounded-lg shadow";
+            } else {
+                document.getElementById('btn-student-login').className = "px-4 py-2 bg-blue-600 text-white rounded-lg shadow";
+                document.getElementById('btn-admin-login').className = "px-4 py-2 bg-gray-200 text-gray-700 rounded-lg shadow";
+            }
+        }
+
+        function handleLogin() {
+            const id = document.getElementById('login-id').value;
+            const pass = document.getElementById('login-pass').value;
+            const errorElement = document.getElementById('login-error');
+
+            // Admin Login Check
+            if (currentLoginType === 'admin') {
+                if (failedAttempts >= 5) {
+                    errorElement.innerText = "Too many failed attempts. Try again later.";
+                    errorElement.classList.remove('hidden');
+                    return;
+                }
+
+                if (id === "9813324253" && pass === "Sachin@123") {
+                    failedAttempts = 0;
+                    showSection('admin-section');
+                } else {
+                    failedAttempts++;
+                    errorElement.innerText = `Invalid Credentials. Attempts left: ${5 - failedAttempts}`;
+                    errorElement.classList.remove('hidden');
+                }
+            } 
+            // Student Login Check (Mockup - would connect to Firebase Auth)
+            else {
+                if(pass.length >= 6) {
+                    showSection('student-section');
+                } else {
+                    errorElement.innerText = "Password must be at least 6 digits.";
+                    errorElement.classList.remove('hidden');
+                }
+            }
+        }
+
+        function logout() {
+            showSection('login-section');
+            document.getElementById('login-id').value = '';
+            document.getElementById('login-pass').value = '';
+        }
+
+        // --- 5. TEST TAKING LOGIC ---
+        function openTestPanel() {
+            showSection('test-section');
+            // Mock Timer
+            let time = 45 * 60; 
+            setInterval(() => {
+                let m = Math.floor(time / 60);
+                let s = time % 60;
+                document.getElementById('timer').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+                time--;
+            }, 1000);
+        }
+
+        function toggleLanguage() {
+            isHindi = !isHindi;
+            if(isHindi) {
+                document.getElementById('question-text-en').classList.add('hidden');
+                document.getElementById('question-text-hi').classList.remove('hidden');
+            } else {
+                document.getElementById('question-text-hi').classList.add('hidden');
+                document.getElementById('question-text-en').classList.remove('hidden');
+            }
+        }
+
+        function handleTestBack() {
+            if(confirm("Are you sure you want to pause/exit? You must submit or your progress will be paused.")) {
+                showSection('student-section');
+            }
+        }
+
+        // --- 6. GEMINI AI INTEGRATION ---
+        async function generateAIQuestions() {
+            const promptText = document.getElementById('ai-prompt').value;
+            const status = document.getElementById('ai-status');
+            status.innerText = "Generating with Gemini...";
+            
+            const GEMINI_API_KEY = "AIzaSyCMMrrl7q2pOVxa_XRwQAkPIKPvzM_wd1g";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+            const requestBody = {
+                contents: [{
+                    parts: [{ text: `Generate 2 multiple choice questions based on this topic: ${promptText}. Provide the output in BOTH English and Hindi. Format clearly.` }]
+                }]
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                const data = await response.json();
+                status.innerText = "✅ Questions Generated! Check console.";
+                console.log(data.candidates[0].content.parts[0].text);
+                // Here you would parse the text and upload to Firebase Firestore
+            } catch (error) {
+                status.innerText = "Error connecting to AI.";
+                console.error(error);
+            }
+        }
+
+        // Initialize state
+        showSection('login-section');
+    </script>
+</body>
+</html>
